@@ -1,9 +1,9 @@
 # my_team/agent.py
 from google.adk.agents import LlmAgent
 
-MODEL = "gemini-2.5-flash"  # اگر مدل کلاس‌تان فرق دارد، همینجا عوض کنید.
+MODEL = "gemini-2.5-flash" 
 
-# --- Player Agents ---
+
 
 goalkeeper = LlmAgent(
     name="Alisson_GK",
@@ -66,7 +66,6 @@ Reaction by the attacker:
 """.strip(),
 )
 
-# --- Root Agent (Coach / Coordinator) ---
 
 root_agent = LlmAgent(
     name="CoachRootAgent",
@@ -90,3 +89,4 @@ root_agent = LlmAgent(
 """.strip(),
     sub_agents=[goalkeeper, defender, midfielder, attacker],
 )
+
