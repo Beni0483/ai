@@ -1,4 +1,4 @@
-# my_team/agent.py
+
 from google.adk.agents import LlmAgent
 
 MODEL = "gemini-2.5-flash" 
@@ -89,4 +89,5 @@ root_agent = LlmAgent(
 """.strip(),
     sub_agents=[goalkeeper, defender, midfielder, attacker],
 )
+
 
