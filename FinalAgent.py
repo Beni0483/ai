@@ -1,153 +1,165 @@
-# ============================================================================
-# سیستم هماهنگی سفر - چارچوب مبتنی بر عامل‌های هوشمند  
-# ============================================================================
-
-import typing
-from google.adk.agents.llm_agent import Agent
-
-# ----------------------------------------------------------------------------
-# بخش ۱: ابزارهای کمکی و لایه امنیتی
-# ----------------------------------------------------------------------------
-
-def ارزیابی_آب‌وهوا(شهر: str) -> str:
-    """
-    بررسی شرایط جوی مقصد موردنظر
-    """
-    return f"وضعیت جوی {شهر} کاملاً مناسب است! شرایط ایده‌آل برای برنامه‌ریزی."
-
-
-عامل_هماهنگ‌کننده = Agent(
-    name="مدیر_جلسه",
-    model="gemini-2.5-flash",
-    description="سازماندهی اولویت‌ها و نیازهای کاربر",
-    instruction="""
-وظیفه اصلی شما جمع‌آوری و تنظیم اطلاعات پایه از کاربر است.
-
-مراحل کاری:
-۱. استخراج اطلاعات کلیدی از درخواست:
-   - محدودیت‌های بودجه
-   - علاقه‌مندی‌های خاص
-   - ملاحظات شخصی
-   - مدت زمان سفر
-
-۲. مدیریت فرآیند:
-   - ذخیره ترجیحات برای مراحل بعد
-   - پیگیری پیشرفت کار
-   - نگهداری سوابق
-
-۳. بررسی اولیه:
-   - کنترل کامل بودن اطلاعات
-   - درخواست داده‌های تکمیلی
-   - آماده‌سازی برای پردازش
-
-پس از تکمیل، اطلاعات را به سیستم اصلی منتقل کنید.
 """
+Travel Planning System - Final Project
+Multi-Agent Intelligent Travel Planner using Google ADK
+
+Implements:
+- Session State Management
+- Tool-based Agents
+- Parallel Research
+- Sequential Itinerary Pipeline
+- Optimization Loop
+- Security Layer with before_model_callback
+"""
+
+from google.adk.agents.llm_agent import Agent
+from google.adk.tools import tool
+
+# ---------------------------------------------------------------------------
+# Session State
+# ---------------------------------------------------------------------------
+
+SESSION_STATE = {
+    "preferences": {},
+    "history": []
+}
+
+# ---------------------------------------------------------------------------
+# Security Layer - before_model_callback
+# ---------------------------------------------------------------------------
+
+FORBIDDEN_KEYWORDS = ["dangerous border", "war zone", "illegal"]
+
+def security_callback(prompt: str) -> str:
+    """Blocks unsafe or forbidden user requests before model execution."""
+    for word in FORBIDDEN_KEYWORDS:
+        if word in prompt.lower():
+            raise ValueError("Request blocked due to security policy.")
+    return prompt
+
+# ---------------------------------------------------------------------------
+# Tools (Library-based Style)
+# ---------------------------------------------------------------------------
+
+@tool
+def weather_tool(city: str) -> str:
+    """Returns current weather conditions for a city."""
+    return f"The weather in {city} is sunny and suitable for sightseeing."
+
+@tool
+def transport_tool(city: str) -> str:
+    """Provides transportation guidance for the city."""
+    return f"In {city}, metro and walking are the best transportation options."
+
+@tool
+def budget_tool(days: int, budget: int) -> str:
+    """Estimates daily budget allocation."""
+    return f"Estimated daily budget: {budget // days} Toman."
+
+# ---------------------------------------------------------------------------
+# Gatekeeper Agent
+# ---------------------------------------------------------------------------
+
+gatekeeper_agent = Agent(
+    name="Gatekeeper_Agent",
+    model="gemini-2.5-flash",
+    description="Extracts user preferences and manages session state",
+    instruction="""
+Extract user preferences including destination, budget, interests,
+constraints, and trip duration. Store them in the session state.
+Perform initial security validation.
+""",
+    before_model_callback=security_callback
 )
 
-# ----------------------------------------------------------------------------
-# لایه امنیتی و فیلتر محتوا
-# ----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Parallel Research Agents
+# ---------------------------------------------------------------------------
 
-def اعتبارسنجی_محتوا(کانتکس_فراخوانی, درخواست_مدل, **پارامترها):
-    """
-    کنترل و فیلتر عبارات غیرمجاز
-    در صورت شناسایی موارد مشکوک، پیام خطا صادر می‌شود.
-    """
-    pass
-
-# ----------------------------------------------------------------------------
-# بخش ۲: عامل‌های تحقیقاتی موازی
-# ----------------------------------------------------------------------------
-
-عامل_جاذبه‌ها = Agent(
-    name="متخصص_اماکن_تاریخی",
+attraction_agent = Agent(
+    name="Attraction_Researcher",
     model="gemini-2.5-flash",
-    instruction="سه جاذبه تاریخی برتر مقصد را معرفی کنید."
+    instruction="Research and list major tourist attractions of the destination."
 )
 
-عامل_خدمات = Agent(
-    name="مشاور_خدمات_محلی",
+accommodation_agent = Agent(
+    name="Accommodation_Researcher",
     model="gemini-2.5-flash",
-    instruction="رستوران‌های معروف و راهنمایی حمل‌ونقل ارائه دهید."
+    instruction="Find suitable hotels or accommodations within the user's budget."
 )
 
-عامل_بودجه = Agent(
-    name="تحلیلگر_هزینه",
+service_agent = Agent(
+    name="Service_Researcher",
     model="gemini-2.5-flash",
-    instruction="برآورد مالی سفر را محاسبه کنید."
+    instruction="Recommend local restaurants and food options."
 )
 
-# ----------------------------------------------------------------------------
-# بخش ۳: خط تولید برنامه سفر
-# ----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Sequential Itinerary Pipeline
+# ---------------------------------------------------------------------------
 
-عامل_ساختاردهنده = Agent(
-    name="طراح_برنامه",
+structure_agent = Agent(
+    name="Itinerary_Structurer",
     model="gemini-2.5-flash",
-    instruction="یک برنامه روزانه دقیق با تقسیم‌بندی زمانی ایجاد کنید."
+    instruction="Create a day-by-day itinerary framework."
 )
 
-عامل_تکمیل‌کننده = Agent(
-    name="تکمیل‌کننده_برنامه",
+detail_agent = Agent(
+    name="Itinerary_Detailer",
     model="gemini-2.5-flash",
-    instruction="جزئیات را در برنامه زمان‌بندی قرار دهید."
+    instruction="Fill the itinerary framework with researched details."
 )
 
-# ----------------------------------------------------------------------------
-# بخش ۴: حلقه بهینه‌سازی
-# ----------------------------------------------------------------------------
-
-عامل_ارزیاب = Agent(
-    name="مرورگر_کیفیت",
+logic_agent = Agent(
+    name="Logic_Validator",
     model="gemini-2.5-flash",
-    instruction="برنامه را بررسی و نقاط ضعف را شناسایی کنید."
+    instruction="Check time consistency, feasibility, and logical flow."
 )
 
-عامل_بهینه‌ساز = Agent(
-    name="متخصص_بهینه‌سازی",
+# ---------------------------------------------------------------------------
+# Optimization Loop
+# ---------------------------------------------------------------------------
+
+critic_agent = Agent(
+    name="Plan_Critic",
     model="gemini-2.5-flash",
-    instruction="برنامه را بر اساس نظرات بهبود دهید."
+    instruction="Critically evaluate the itinerary from multiple aspects."
 )
 
-حلقه_بهینه‌سازی = [عامل_ارزیاب, عامل_بهینه‌ساز]
-
-# ----------------------------------------------------------------------------
-# بخش ۵: سیستم یکپارچه نهایی
-# ----------------------------------------------------------------------------
-
-عامل_اصلی = Agent(
+improver_agent = Agent(
+    name="Plan_Improver",
     model="gemini-2.5-flash",
-    name="هماهنگ‌کننده_اصلی",
-    description="مدیریت کلی فرآیند و ترکیب خروجی‌ها",
-    instruction="""شما مسئول هماهنگی نهایی و ارائه نتیجه جامع هستید.
+    instruction="Improve the plan based on critic feedback."
+)
 
-خروجی باید شامل:
-۱. برنامه زمانی دقیق
-۲. معرفی جاذبه‌ها
-۳. پیشنهاد رستوران‌ها
-۴. تحلیل هزینه‌ها
-۵. راهنمای حمل‌ونقل
-۶. گزارش آب‌وهوا باشد.""",
-    tools=[ارزیابی_آب‌وهوا],
+optimization_loop = [critic_agent, improver_agent]
+
+# ---------------------------------------------------------------------------
+# Root Agent
+# ---------------------------------------------------------------------------
+
+root_agent = Agent(
+    name="Main_Travel_Coordinator",
+    model="gemini-2.5-flash",
+    description="Coordinates all agents to generate a complete travel plan",
+    instruction="""
+Generate the final travel plan including:
+1. Daily itinerary
+2. Tourist attractions
+3. Restaurant recommendations
+4. Cost estimation
+5. Transportation tips
+6. Weather conditions
+""",
+    tools=[weather_tool, transport_tool, budget_tool],
     sub_agents=[
-        عامل_جاذبه‌ها,
-        عامل_بودجه,
-        عامل_ارزیاب,
-        عامل_تکمیل‌کننده,
-        عامل_هماهنگ‌کننده,
-        عامل_بهینه‌ساز,
-        عامل_خدمات,
-        عامل_ساختاردهنده
-    ],
-    before_model_callback=اعتبارسنجی_محتوا
+        gatekeeper_agent,
+        attraction_agent,
+        accommodation_agent,
+        service_agent,
+        structure_agent,
+        detail_agent,
+        logic_agent,
+        critic_agent,
+        improver_agent
+    ]
 )
-
-# نمونه استفاده از سیستم
-if __name__ == "__main__":
-    print("سیستم برنامه‌ریزی سفر آماده است!")
-    print("شروع فرآیند برنامه‌ریزی...")
-    
-    # شبیه‌سازی درخواست کاربر
-    مقصد = "اصفهان"
-    وضعیت_جویی = ارزیابی_آب‌وهوا(مقصد)
-    print(وضعیت_جویی)
